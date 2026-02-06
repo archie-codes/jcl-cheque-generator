@@ -935,7 +935,7 @@ export default function MaintenancePage() {
           </h2>
           
           <p className="text-slate-500 mb-10 leading-relaxed">
-            We are currently optimizing the BPI Cheque Filler to improve accuracy and printing speed. We'll be back online shortly.
+            We are currently optimizing the BPI Cheque Filler to improve accuracy and printing speed. We&apos;ll be back online shortly.
           </p>
 
           {/* Minimal Status Card */}

@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-   <html lang="en">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen relative`}
       >
@@ -36,13 +36,16 @@ export default function RootLayout({
         <div
           className="fixed inset-0 z-[-1]"
           style={{
-            background: `
-              radial-gradient(ellipse 85% 65% at 8% 8%, rgba(175, 109, 255, 0.42), transparent 60%),
-              radial-gradient(ellipse 75% 60% at 75% 35%, rgba(255, 235, 170, 0.55), transparent 62%),
-              radial-gradient(ellipse 70% 60% at 15% 80%, rgba(255, 100, 180, 0.40), transparent 62%),
-              radial-gradient(ellipse 70% 60% at 92% 92%, rgba(120, 190, 255, 0.45), transparent 62%),
-              linear-gradient(180deg, #f7eaff 0%, #fde2ea 100%)
-            `,
+            background: "#ffffff",
+            backgroundImage: `
+        radial-gradient(
+          circle at top center,
+          rgba(56, 193, 182, 0.5),
+          transparent 70%
+        )
+      `,
+            filter: "blur(80px)",
+            backgroundRepeat: "no-repeat",
           }}
         />
 
@@ -50,11 +53,8 @@ export default function RootLayout({
           Uses flex-col to push the footer to the bottom even if content is short.
         */}
         <div className="flex flex-col min-h-screen relative z-10">
-          
           {/* Main Page Content */}
-          <main className="flex-1">
-            {children}
-          </main>
+          <main className="flex-1">{children}</main>
 
           {/* FOOTER 
             Added glassmorphism (backdrop-blur) so it blends with the aurora background.
