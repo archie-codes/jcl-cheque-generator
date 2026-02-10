@@ -15,9 +15,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RBP Cheque Printing",
+  title: "JC&L Cheque Generator",
   description: "For Cheque Printing",
+  icons: {
+    icon: [
+      {
+        url: "/jcl-logo.svg",
+        type: "image/svg+xml",
+        sizes: "32x32",
+      },
+      {
+        url: "/jcl-logo.svg",
+        type: "image/svg+xml",
+        sizes: "16x16",
+      },
+    ],
+  },
 };
+
 
 export default function RootLayout({
   children,

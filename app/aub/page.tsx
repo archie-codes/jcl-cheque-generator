@@ -1961,7 +1961,7 @@ export default function AUBChequeFiller() {
                   {/* Date Fields */}
                   <div
                     className="absolute"
-                    style={{ top: "11mm", right: "10mm" }}
+                    style={{ top: "11mm", right: "9.5mm" }}
                   >
                     <div className="flex items-baseline gap-0">
                       {[
