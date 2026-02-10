@@ -17,6 +17,7 @@ import {
   Loader2,
   ArrowBigUp,
   X,
+  ChevronDownIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -49,6 +50,7 @@ import { NumericFormat } from "react-number-format";
 
 export default function AUBChequeFiller() {
   const [showTemplate, setShowTemplate] = useState(true);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // --- Main Check Data ---
   const [formData, setFormData] = useState<Record<string, string>>({
@@ -717,7 +719,9 @@ export default function AUBChequeFiller() {
                         {/* Col 3 - CV Info */}
                         <div className="p-2 space-y-2">
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-black font-medium">CV No.</span>
+                            <span className="text-black font-medium">
+                              CV No.
+                            </span>
                             <input
                               className="w-24 text-right font-medium focus:outline-none"
                               placeholder="CV00001"
@@ -731,7 +735,9 @@ export default function AUBChequeFiller() {
                             />
                           </div>
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-black font-medium">Check No.</span>
+                            <span className="text-black font-medium">
+                              Check No.
+                            </span>
                             <input
                               className="w-24 text-right font-medium focus:outline-none"
                               placeholder="0000001234"
@@ -745,7 +751,9 @@ export default function AUBChequeFiller() {
                             />
                           </div>
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-black font-medium">Bank:</span>
+                            <span className="text-black font-medium">
+                              Bank:
+                            </span>
                             <input
                               className="w-24 text-right font-medium focus:outline-none"
                               value={voucherData.bank}
@@ -802,7 +810,7 @@ export default function AUBChequeFiller() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Date Section */}
-                <div className="space-y-3">
+                {/* <div className="space-y-3">
                   <Label className="text-sm font-medium flex items-center gap-2 text-slate-700">
                     <CalendarIcon className="h-4 w-4 text-slate-400" />
                     Date
@@ -829,6 +837,50 @@ export default function AUBChequeFiller() {
                         mode="single"
                         selected={selectedDate}
                         onSelect={handleDateSelect}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div> */}
+                {/* Date Section */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium flex items-center gap-2 text-slate-700">
+                    <CalendarIcon className="h-4 w-4 text-slate-400" />
+                    Date
+                  </Label>
+
+                  {/* 1. Control the Popover with state */}
+                  <Popover
+                    open={isCalendarOpen}
+                    onOpenChange={setIsCalendarOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-white/50",
+                          !selectedDate && "text-slate-400",
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? (
+                          format(selectedDate, "MM/dd/yyyy")
+                        ) : (
+                          <span>Select a date</span>
+                        )}
+                        {/* Change ml-2 to ml-auto here */}
+                        <ChevronDownIcon className="ml-auto h-4 w-4 text-slate-400" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        /* 2. Update logic: Save date AND close popover */
+                        onSelect={(date) => {
+                          handleDateSelect(date); // Your existing logic
+                          setIsCalendarOpen(false); // Close the popover
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
