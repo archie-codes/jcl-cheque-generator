@@ -79,7 +79,8 @@ export default function AUBChequeFiller() {
     auditedByPos: "",
     receivedBy: "",
     receivedByPos: "",
-    cvNo: "CV00001",
+    cvNo: "",
+    checkNo: "",
     bank: "AUB",
   });
 
@@ -186,7 +187,8 @@ export default function AUBChequeFiller() {
       auditedByPos: "",
       receivedBy: "",
       receivedByPos: "",
-      cvNo: "CV00001",
+      cvNo: "",
+      checkNo: "",
       bank: "AUB",
     });
   };
@@ -481,7 +483,7 @@ export default function AUBChequeFiller() {
                           </span>
                         </div>
                         <div>
-                          <h2 className="text-2xl font-bold text-emerald-800 leading-none">
+                          <h2 className="text-2xl font-bold text-blue-800 leading-none">
                             JC&L
                           </h2>
                           <p className="text-emerald-700 font-semibold tracking-widest text-sm">
@@ -513,7 +515,7 @@ export default function AUBChequeFiller() {
                       <div className="col-span-4 flex items-end border-b border-black pb-1">
                         <span className="font-bold w-12 shrink-0">Date:</span>
                         <input
-                          className="w-full bg-transparent focus:outline-none text-center"
+                          className="w-full bg-transparent focus:outline-none text-center font-medium uppercase text-m"
                           value={
                             selectedDate
                               ? format(selectedDate, "MMMM dd, yyyy")
@@ -529,15 +531,15 @@ export default function AUBChequeFiller() {
                           THE SUM OF:
                         </span>
                         <input
-                          className="w-full bg-transparent focus:outline-none uppercase text-xs"
+                          className="w-full bg-transparent focus:outline-none font-medium uppercase text-m"
                           value={formData.pesosSentece}
                           readOnly
                         />
                       </div>
                       <div className="col-span-4 flex items-end border-b border-black pb-1">
-                        <span className="font-bold w-12 shrink-0">Php.</span>
+                        <span className="font-bold w-12 shrink-0">Pesos:</span>
                         <input
-                          className="w-full bg-transparent focus:outline-none font-bold text-lg text-right"
+                          className="w-full bg-transparent focus:outline-none font-bold text-lg text-center"
                           value={formData.pesos}
                           readOnly
                         />
@@ -570,7 +572,7 @@ export default function AUBChequeFiller() {
                         </div>
                         <div className="w-48 p-2">
                           <input
-                            className="w-full text-right bg-transparent focus:outline-none"
+                            className="w-full bg-transparent focus:outline-none text-center font-medium"
                             value={voucherData.amount}
                             onChange={(e) =>
                               setVoucherData((prev) => ({
@@ -715,9 +717,10 @@ export default function AUBChequeFiller() {
                         {/* Col 3 - CV Info */}
                         <div className="p-2 space-y-2">
                           <div className="flex justify-between items-center text-sm">
-                            <span className="font-bold">CV No.</span>
+                            <span className="text-black font-medium">CV No.</span>
                             <input
                               className="w-24 text-right font-medium focus:outline-none"
+                              placeholder="CV00001"
                               value={voucherData.cvNo}
                               onChange={(e) =>
                                 setVoucherData((prev) => ({
@@ -728,11 +731,21 @@ export default function AUBChequeFiller() {
                             />
                           </div>
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-600">Check No.</span>
-                            <span className="text-right">0000558676</span>
+                            <span className="text-black font-medium">Check No.</span>
+                            <input
+                              className="w-24 text-right font-medium focus:outline-none"
+                              placeholder="0000001234"
+                              value={voucherData.checkNo}
+                              onChange={(e) =>
+                                setVoucherData((prev) => ({
+                                  ...prev,
+                                  checkNo: e.target.value,
+                                }))
+                              }
+                            />
                           </div>
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-600">Bank:</span>
+                            <span className="text-black font-medium">Bank:</span>
                             <input
                               className="w-24 text-right font-medium focus:outline-none"
                               value={voucherData.bank}
