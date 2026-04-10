@@ -11,7 +11,15 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Printer, ArrowLeft, FileText, X } from "lucide-react";
+import {
+  Search,
+  Printer,
+  ArrowLeft,
+  FileText,
+  X,
+  Download,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { format } from "date-fns";
@@ -24,7 +32,11 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-// NEW: Shadcn Pagination Imports
+// PDF Generation Imports
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
+
+// Shadcn Pagination Imports
 import {
   Pagination,
   PaginationContent,
@@ -60,8 +72,9 @@ export default function VoucherHistory() {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // State to hold the voucher we want to reprint
+  // State to hold the voucher we want to reprint/download
   const [reprintVoucher, setReprintVoucher] = useState<Voucher | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -72,9 +85,8 @@ export default function VoucherHistory() {
       fetchHistory();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, currentPage]); // <- Added currentPage here
+  }, [search, currentPage]);
 
-  // Reset to page 1 whenever the user types a new search
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     setCurrentPage(1);
@@ -83,14 +95,13 @@ export default function VoucherHistory() {
   const fetchHistory = async () => {
     setIsLoading(true);
     try {
-      // Updated URL to include page and limit
       const res = await fetch(
         `/api/vouchers/history?search=${encodeURIComponent(search)}&page=${currentPage}&limit=${itemsPerPage}`,
       );
       if (res.ok) {
         const json = await res.json();
-        setVouchers(json.data); // Pull from the new 'data' wrapper
-        setTotalPages(json.pagination.totalPages); // Update total pages
+        setVouchers(json.data);
+        setTotalPages(json.pagination.totalPages);
       }
     } catch (error) {
       console.error("Failed to fetch history:", error);
@@ -106,7 +117,6 @@ export default function VoucherHistory() {
       : num.toLocaleString("en-US", { minimumFractionDigits: 2 });
   };
 
-  // We need this here to convert the saved amount back to words for the reprint
   function numberToWordsSentence(value: string) {
     const cleaned = value.replace(/[^\d.]/g, "");
     if (!cleaned) return "";
@@ -187,7 +197,6 @@ export default function VoucherHistory() {
     return `${words} ${pesos === 1 ? "Peso" : "Pesos"} and ${centavos}/100 Centavos`;
   }
 
-  // Generate dynamic page numbers (e.g., 1, 2, 3, ..., 10)
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -219,6 +228,44 @@ export default function VoucherHistory() {
       }
     }
     return pages;
+  };
+
+  // --- PDF DOWNLOAD FUNCTION (Using html-to-image) ---
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("printable-voucher");
+    if (!element) return;
+
+    setIsDownloading(true);
+    try {
+      // Capture the DOM element as a high-quality PNG
+      const dataUrl = await toPng(element, {
+        pixelRatio: 2, // 2x scale for crisp text
+        backgroundColor: "#ffffff", // Ensure background isn't transparent
+      });
+
+      // Create an A4 PDF in portrait mode
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+
+      // We need an image object to get the dimensions of the generated PNG
+      const img = new window.Image();
+      img.src = dataUrl;
+
+      img.onload = () => {
+        const pdfHeight = (img.height * pdfWidth) / img.width;
+        pdf.addImage(dataUrl, "PNG", 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`${reprintVoucher?.cvNo || "Voucher"}.pdf`);
+        setIsDownloading(false);
+      };
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -316,10 +363,14 @@ export default function VoucherHistory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  vouchers.map((v) => (
+                  vouchers.map((v, index) => (
                     <TableRow
                       key={v.id}
-                      className="hover:bg-slate-50 transition-colors"
+                      className="hover:bg-slate-50 transition-colors animate-pop-in"
+                      style={{
+                        // This multiplies the index by 50ms to create the "waterfall" stagger effect!
+                        animationDelay: `${index * 50}ms`,
+                      }}
                     >
                       <TableCell className="font-mono font-medium text-emerald-700">
                         {v.cvNo || "-"}
@@ -344,7 +395,7 @@ export default function VoucherHistory() {
                           size="sm"
                           className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
                           title="Reprint Voucher"
-                          onClick={() => setReprintVoucher(v)} // Sets the voucher to reprint!
+                          onClick={() => setReprintVoucher(v)}
                         >
                           <Printer className="h-4 w-4" />
                         </Button>
@@ -355,20 +406,17 @@ export default function VoucherHistory() {
               </TableBody>
             </Table>
 
-            {/* NEW SHADCN PAGINATION FOOTER */}
+            {/* SHADCN PAGINATION FOOTER */}
             {!isLoading && totalPages > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-white">
-                {/* Left Side: Page Counter */}
                 <div className="text-sm text-slate-500 hidden sm:block">
                   Showing page{" "}
                   <span className="font-medium">{currentPage}</span> of{" "}
                   <span className="font-medium">{totalPages}</span>
                 </div>
 
-                {/* Right Side: Pagination Controls */}
                 <Pagination className="mx-0 w-auto">
                   <PaginationContent>
-                    {/* Previous Button */}
                     <PaginationItem>
                       <PaginationPrevious
                         href="#"
@@ -384,7 +432,6 @@ export default function VoucherHistory() {
                       />
                     </PaginationItem>
 
-                    {/* Page Numbers */}
                     {getPageNumbers().map((pageNum, idx) => (
                       <PaginationItem key={idx}>
                         {pageNum === "..." ? (
@@ -407,7 +454,6 @@ export default function VoucherHistory() {
                       </PaginationItem>
                     ))}
 
-                    {/* Next Button */}
                     <PaginationItem>
                       <PaginationNext
                         href="#"
@@ -444,10 +490,26 @@ export default function VoucherHistory() {
             <DialogHeader>
               <DialogTitle>Reprint Voucher: {reprintVoucher?.cvNo}</DialogTitle>
               <DialogDescription>
-                Verify the historical details and print.
+                Verify the historical details and print or download.
               </DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2">
+              {/* NEW DOWNLOAD BUTTON */}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isDownloading}
+                onClick={handleDownloadPDF}
+                className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+              >
+                {isDownloading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Download PDF
+              </Button>
+
               <Button
                 size="sm"
                 onClick={() => window.print()}
@@ -456,6 +518,7 @@ export default function VoucherHistory() {
                 <Printer className="w-4 h-4 mr-2" />
                 Print Voucher
               </Button>
+
               <div className="ml-2 pl-2 border-l border-slate-300">
                 <DialogClose asChild>
                   <Button
