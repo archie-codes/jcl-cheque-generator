@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import Image from "next/image"
-import { ArrowRight } from "lucide-react"
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 
 const banks = [
   {
@@ -23,7 +23,16 @@ const banks = [
     accentColor: "hover:border-[#c41e3a]",
     tagColor: "bg-[#fdf2f4] text-[#c41e3a]",
   },
-]
+  {
+    id: "acknowledgement-receipt",
+    name: "ACKNOWLEDGEMENT RECEIPT",
+    description: "Acknowledgement Receipt",
+    href: "/acknowledgement-receipt",
+    image: "/jcl-logo.png",
+    accentColor: "hover:border-[#059669]",
+    tagColor: "bg-[#ecfdf5] text-[#059669]",
+  },
+];
 
 export function BankSelection() {
   return (
@@ -35,18 +44,30 @@ export function BankSelection() {
           >
             {/* Tag */}
             <div className="absolute top-4 left-4 z-10">
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${bank.tagColor}`}>{bank.name}</span>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium ${bank.tagColor}`}
+              >
+                {bank.name}
+              </span>
             </div>
 
             {/* Cheque Image Container */}
             <div className="relative pt-14 px-6 pb-4">
               <div className="relative aspect-[2.4/1] w-full overflow-hidden rounded-lg shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                <Image
-                  src={bank.image || "/placeholder.svg"}
-                  alt={`${bank.name} cheque sample`}
-                  fill
-                  className="object-fill group-hover:scale-[1.02] transition-transform duration-500"
-                />
+                {bank.id === "acknowledgement-receipt" ? (
+                  <div className="flex items-center justify-center w-full h-full bg-slate-100/50">
+                    <span className="text-2xl md:text-3xl font-bold text-slate-400 tracking-widest text-center px-4">
+                      COMMING SOON
+                    </span>
+                  </div>
+                ) : (
+                  <Image
+                    src={bank.image || "/placeholder.svg"}
+                    alt={`${bank.name} cheque sample`}
+                    fill
+                    className="object-fill group-hover:scale-[1.02] transition-transform duration-500"
+                  />
+                )}
               </div>
             </div>
 
@@ -54,8 +75,12 @@ export function BankSelection() {
             <div className="px-6 pb-6 pt-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold text-card-foreground mb-1">{bank.description}</h3>
-                  <p className="text-sm text-muted-foreground">Click to select and print</p>
+                  <h3 className="text-xl font-semibold text-card-foreground mb-1">
+                    {bank.description}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Click to select and print
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center group-hover:bg-foreground transition-colors duration-300">
                   <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-background transition-colors duration-300" />
@@ -66,5 +91,5 @@ export function BankSelection() {
         </Link>
       ))}
     </div>
-  )
+  );
 }
