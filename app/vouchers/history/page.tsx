@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Search,
   Printer,
@@ -19,10 +20,12 @@ import {
   X,
   Download,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +49,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+
+import { NumericFormat } from "react-number-format";
 
 // Define the shape of our voucher data based on your SQL table
 interface Voucher {
@@ -72,10 +77,15 @@ export default function VoucherHistory() {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // State to hold the voucher we want to reprint/download
+  // States for Modals
   const [reprintVoucher, setReprintVoucher] = useState<Voucher | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [editVoucher, setEditVoucher] = useState<Voucher | null>(null);
 
+  // Loading states
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 15;
@@ -107,6 +117,33 @@ export default function VoucherHistory() {
       console.error("Failed to fetch history:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // --- SAVE EDIT FUNCTION ---
+  const handleSaveEdit = async () => {
+    if (!editVoucher) return;
+
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/vouchers/${editVoucher.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editVoucher),
+      });
+
+      if (res.ok) {
+        toast.success("Voucher updated successfully!");
+        setEditVoucher(null); // Close modal
+        fetchHistory(); // Refresh the table
+      } else {
+        toast.error("Failed to update voucher. CV No. might be a duplicate.");
+      }
+    } catch (error) {
+      console.error("Error updating voucher:", error);
+      toast.error("An error occurred while saving.");
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -230,20 +267,17 @@ export default function VoucherHistory() {
     return pages;
   };
 
-  // --- PDF DOWNLOAD FUNCTION (Using html-to-image) ---
   const handleDownloadPDF = async () => {
     const element = document.getElementById("printable-voucher");
     if (!element) return;
 
     setIsDownloading(true);
     try {
-      // Capture the DOM element as a high-quality PNG
       const dataUrl = await toPng(element, {
-        pixelRatio: 2, // 2x scale for crisp text
-        backgroundColor: "#ffffff", // Ensure background isn't transparent
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
       });
 
-      // Create an A4 PDF in portrait mode
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -251,8 +285,6 @@ export default function VoucherHistory() {
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-
-      // We need an image object to get the dimensions of the generated PNG
       const img = new window.Image();
       img.src = dataUrl;
 
@@ -348,7 +380,7 @@ export default function VoucherHistory() {
                       className="text-center py-12 text-slate-500"
                     >
                       <div className="flex justify-center items-center gap-2">
-                        <Search className="h-4 w-4 animate-pulse" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         Loading records...
                       </div>
                     </TableCell>
@@ -367,10 +399,7 @@ export default function VoucherHistory() {
                     <TableRow
                       key={v.id}
                       className="hover:bg-slate-50 transition-colors animate-pop-in"
-                      style={{
-                        // This multiplies the index by 50ms to create the "waterfall" stagger effect!
-                        animationDelay: `${index * 50}ms`,
-                      }}
+                      style={{ animationDelay: `${index * 50}ms` }}
                     >
                       <TableCell className="font-mono font-medium text-emerald-700">
                         {v.cvNo || "-"}
@@ -390,15 +419,26 @@ export default function VoucherHistory() {
                         ₱{formatAmount(v.amount)}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
-                          title="Reprint Voucher"
-                          onClick={() => setReprintVoucher(v)}
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8"
+                            title="Edit Voucher"
+                            onClick={() => setEditVoucher(v)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-8 w-8"
+                            title="Reprint / Download Voucher"
+                            onClick={() => setReprintVoucher(v)}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -477,7 +517,358 @@ export default function VoucherHistory() {
         </div>
       </main>
 
-      {/* REPRINT MODAL */}
+      {/* --- EDIT MODAL (INLINE DOCUMENT EDITING) --- */}
+      <Dialog
+        open={!!editVoucher}
+        onOpenChange={(open) => {
+          if (!open) setEditVoucher(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[1200px] max-w-[1200px]! w-full max-h-[95vh] overflow-y-auto print:max-w-none print:w-full print:h-screen print:max-h-none print:p-0 print:border-none print:shadow-none [&>button.absolute]:hidden">
+          <div className="print:hidden flex justify-between items-center sticky -top-6 -mx-6 px-6 z-50 bg-white pt-6 pb-4 mb-4 border-b border-slate-200">
+            <DialogHeader>
+              <DialogTitle>Edit Voucher: {editVoucher?.cvNo}</DialogTitle>
+              <DialogDescription>
+                Click directly on the fields in the document below to edit them.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleSaveEdit}
+                disabled={isSavingEdit}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isSavingEdit && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Save Changes
+              </Button>
+              <div className="ml-2 pl-2 border-l border-slate-300">
+                <DialogClose asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 bg-slate-100 hover:bg-red-100 hover:text-red-600 text-slate-600 rounded-full transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogClose>
+              </div>
+            </div>
+          </div>
+
+          {editVoucher && (
+            <div className="bg-white p-8 text-black font-sans text-sm relative border border-gray-200 shadow-md w-full mx-auto my-4 transition-all">
+              {/* Header Logo */}
+              <div className="flex justify-between items-start mb-2 border-t-10 border-emerald-800 pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 relative flex items-center justify-center">
+                    <span className="text-xs font-bold text-center">
+                      <Image
+                        src="/jcl-logo.png"
+                        alt="Logo"
+                        width={64}
+                        height={64}
+                      />
+                    </span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-blue-800 leading-none">
+                      JC&L
+                    </h2>
+                    <p className="text-emerald-700 font-semibold tracking-widest text-sm">
+                      PROSERVE INC.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="bg-gray-400 text-white text-center font-bold py-1 text-lg mb-6 uppercase tracking-widest">
+                Check Voucher
+              </div>
+
+              {/* Details */}
+              <div className="grid grid-cols-12 gap-x-4 gap-y-6 mb-4">
+                <div className="col-span-8 flex items-end border-b border-black pb-1">
+                  <span className="font-bold w-24 shrink-0">PAY TO:</span>
+                  <input
+                    className="w-full bg-transparent focus:outline-none font-medium uppercase hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                    value={editVoucher.payeeName}
+                    onChange={(e) =>
+                      setEditVoucher({
+                        ...editVoucher,
+                        payeeName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-span-4 flex items-end border-b border-black pb-1">
+                  <span className="font-bold w-12 shrink-0">Date:</span>
+                  <input
+                    type="date"
+                    className="w-full bg-transparent focus:outline-none text-center font-medium uppercase text-m hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                    value={
+                      editVoucher.checkDate
+                        ? format(new Date(editVoucher.checkDate), "yyyy-MM-dd")
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setEditVoucher({
+                        ...editVoucher,
+                        checkDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-span-8 flex items-end border-b border-black pb-1">
+                  <span className="font-bold w-24 shrink-0">THE SUM OF:</span>
+                  <input
+                    className="w-full bg-transparent focus:outline-none font-medium uppercase text-m text-slate-500 cursor-not-allowed"
+                    value={numberToWordsSentence(editVoucher.amount)}
+                    readOnly
+                    title="This is auto-calculated based on the Pesos field"
+                  />
+                </div>
+                <div className="col-span-4 flex items-end border-b border-black pb-1">
+                  <span className="font-bold w-12 shrink-0">Pesos:</span>
+                  <NumericFormat
+                    value={editVoucher.amount}
+                    thousandSeparator={true}
+                    decimalScale={2}
+                    className="w-full bg-transparent focus:outline-none font-bold text-lg text-center hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                    onValueChange={(values) => {
+                      setEditVoucher({
+                        ...editVoucher,
+                        amount: values.formattedValue || "",
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Particulars Table */}
+              <div className="border-2 border-black mb-6 mt-6">
+                <div className="flex border-b-2 border-black">
+                  <div className="flex-1 font-bold text-center py-1 border-r-2 border-black">
+                    PARTICULARS
+                  </div>
+                  <div className="w-48 font-bold text-center py-1">AMOUNT</div>
+                </div>
+                <div className="flex min-h-[300px]">
+                  <div className="flex-1 border-r-2 border-black p-2">
+                    <Textarea
+                      className="w-full h-full min-h-[280px] border-none resize-none focus-visible:ring-1 focus-visible:ring-blue-200 hover:bg-slate-50 focus:bg-blue-50 bg-transparent text-base p-1 transition-colors rounded"
+                      value={editVoucher.particulars}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          particulars: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="w-48 p-2">
+                    <NumericFormat
+                      value={editVoucher.amount}
+                      thousandSeparator={true}
+                      decimalScale={2}
+                      className="w-full bg-transparent focus:outline-none text-center font-medium hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                      onValueChange={(values) => {
+                        setEditVoucher({
+                          ...editVoucher,
+                          amount: values.formattedValue || "",
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Signatories */}
+              <div className="border border-black mb-6">
+                <div className="grid grid-cols-3 divide-x divide-black">
+                  <div className="p-1">
+                    <div className="font-bold text-xs mb-8">Prepared by:</div>
+                    <input
+                      className="w-full text-center focus:outline-none font-medium text-sm hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Name"
+                      value={editVoucher.preparedBy}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          preparedBy: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      className="w-full text-center focus:outline-none text-xs text-slate-500 mt-1 hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Position"
+                      value={editVoucher.preparedByPos}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          preparedByPos: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="p-1">
+                    <div className="font-bold text-xs mb-8">Verified by:</div>
+                    <input
+                      className="w-full text-center focus:outline-none font-medium text-sm hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Name"
+                      value={editVoucher.verifiedBy}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          verifiedBy: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      className="w-full text-center focus:outline-none text-xs text-slate-500 mt-1 hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Position"
+                      value={editVoucher.verifiedByPos}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          verifiedByPos: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="p-1">
+                    <div className="font-bold text-xs mb-8">Audited by:</div>
+                    <input
+                      className="w-full text-center focus:outline-none font-medium text-sm hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Name"
+                      value={editVoucher.auditedBy}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          auditedBy: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      className="w-full text-center focus:outline-none text-xs text-slate-500 mt-1 hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Position"
+                      value={editVoucher.auditedByPos}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          auditedByPos: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-black border-t border-black">
+                  <div className="p-1">
+                    <div className="font-bold text-xs mb-6">
+                      Approved for payment
+                    </div>
+                    <div className="text-center font-bold uppercase text-sm">
+                      LOUIE P. MAGLALANG
+                    </div>
+                    <div className="text-center text-xs">General Manager</div>
+                  </div>
+                  <div className="p-1">
+                    <div className="font-bold text-xs mb-8">
+                      Payment Received by:
+                    </div>
+                    <input
+                      className="w-full text-center focus:outline-none font-medium text-sm hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Name"
+                      value={editVoucher.receivedBy}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          receivedBy: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      className="w-full text-center focus:outline-none text-xs text-slate-500 mt-1 hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 rounded transition-colors"
+                      placeholder="Position"
+                      value={editVoucher.receivedByPos}
+                      onChange={(e) =>
+                        setEditVoucher({
+                          ...editVoucher,
+                          receivedByPos: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="p-2 space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-black font-medium">CV No.</span>
+                      <input
+                        className="w-24 text-right font-medium focus:outline-none hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                        value={editVoucher.cvNo}
+                        onChange={(e) =>
+                          setEditVoucher({
+                            ...editVoucher,
+                            cvNo: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-black font-medium">Check No.</span>
+                      <input
+                        className="w-24 text-right font-medium focus:outline-none hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                        value={editVoucher.checkNo}
+                        onChange={(e) =>
+                          setEditVoucher({
+                            ...editVoucher,
+                            checkNo: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-black font-medium">Bank:</span>
+                      <input
+                        className="w-24 text-right font-medium focus:outline-none hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-200 px-1 rounded transition-colors"
+                        value={editVoucher.bank}
+                        onChange={(e) =>
+                          setEditVoucher({
+                            ...editVoucher,
+                            bank: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Address */}
+              <div className="text-center text-[10px] mt-8 flex justify-between px-4">
+                <div className="text-left w-1/3">
+                  <span className="font-bold">Office Address:</span> Unit 203
+                  2nd Floor Landmark Building, Kalayaan Village Service Road,
+                  Barangay Quebiauan, City of San Fernando Pampanga
+                </div>
+                <div className="text-right w-1/3 space-y-1">
+                  <div>
+                    <span className="font-bold">Contact Number:</span> (+63) 994
+                    - 843 - 0972
+                  </div>
+                  <div>
+                    <span className="font-bold">Website:</span>{" "}
+                    www.jclproserve.com
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* --- REPRINT MODAL (READ-ONLY) --- */}
       <Dialog
         open={!!reprintVoucher}
         onOpenChange={(open) => {
@@ -485,7 +876,6 @@ export default function VoucherHistory() {
         }}
       >
         <DialogContent className="sm:max-w-[1200px] max-w-[1200px]! w-full max-h-[95vh] overflow-y-auto print:max-w-none print:w-full print:h-screen print:max-h-none print:p-0 print:border-none print:shadow-none [&>button.absolute]:hidden">
-          {/* Header Controls */}
           <div className="print:hidden flex justify-between items-center sticky -top-6 -mx-6 px-6 z-50 bg-white pt-6 pb-4 mb-4 border-b border-slate-200">
             <DialogHeader>
               <DialogTitle>Reprint Voucher: {reprintVoucher?.cvNo}</DialogTitle>
@@ -494,7 +884,6 @@ export default function VoucherHistory() {
               </DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2">
-              {/* NEW DOWNLOAD BUTTON */}
               <Button
                 size="sm"
                 variant="outline"
@@ -533,13 +922,11 @@ export default function VoucherHistory() {
             </div>
           </div>
 
-          {/* VOUCHER PRINT AREA (Only renders if reprintVoucher exists) */}
           {reprintVoucher && (
             <div
               className="bg-white p-8 text-black font-sans text-sm relative border border-gray-200 shadow-sm print:border-none print:shadow-none print:p-0 w-full mx-auto"
               id="printable-voucher"
             >
-              {/* Header Logo */}
               <div className="flex justify-between items-start mb-2 border-t-10 border-emerald-800 pt-4">
                 <div className="flex items-center gap-3">
                   <div className="h-16 w-16 relative flex items-center justify-center">
@@ -563,12 +950,10 @@ export default function VoucherHistory() {
                 </div>
               </div>
 
-              {/* Title */}
               <div className="bg-gray-400 text-white text-center font-bold py-1 text-lg mb-6 uppercase tracking-widest">
                 Check Voucher
               </div>
 
-              {/* Details */}
               <div className="grid grid-cols-12 gap-x-4 gap-y-6 mb-4">
                 <div className="col-span-8 flex items-end border-b border-black pb-1">
                   <span className="font-bold w-24 shrink-0">PAY TO:</span>
@@ -601,7 +986,6 @@ export default function VoucherHistory() {
                 </div>
               </div>
 
-              {/* Particulars Table */}
               <div className="border-2 border-black mb-6 mt-6">
                 <div className="flex border-b-2 border-black">
                   <div className="flex-1 font-bold text-center py-1 border-r-2 border-black">
@@ -619,10 +1003,8 @@ export default function VoucherHistory() {
                 </div>
               </div>
 
-              {/* Footer Signatories */}
               <div className="border border-black mb-6">
                 <div className="grid grid-cols-3 divide-x divide-black">
-                  {/* Col 1 */}
                   <div className="p-1 text-center">
                     <div className="font-bold text-xs mb-8 text-left">
                       Prepared by:
@@ -634,7 +1016,6 @@ export default function VoucherHistory() {
                       {reprintVoucher.preparedByPos || "\u00A0"}
                     </div>
                   </div>
-                  {/* Col 2 */}
                   <div className="p-1 text-center">
                     <div className="font-bold text-xs mb-8 text-left">
                       Verified by:
@@ -646,7 +1027,6 @@ export default function VoucherHistory() {
                       {reprintVoucher.verifiedByPos || "\u00A0"}
                     </div>
                   </div>
-                  {/* Col 3 */}
                   <div className="p-1 text-center">
                     <div className="font-bold text-xs mb-8 text-left">
                       Audited by:
@@ -660,7 +1040,6 @@ export default function VoucherHistory() {
                   </div>
                 </div>
                 <div className="grid grid-cols-3 divide-x divide-black border-t border-black">
-                  {/* Col 1 */}
                   <div className="p-1">
                     <div className="font-bold text-xs mb-6">
                       Approved for payment
@@ -670,7 +1049,6 @@ export default function VoucherHistory() {
                     </div>
                     <div className="text-center text-xs">General Manager</div>
                   </div>
-                  {/* Col 2 */}
                   <div className="p-1 text-center">
                     <div className="font-bold text-xs mb-8 text-left">
                       Payment Received by:
@@ -682,7 +1060,6 @@ export default function VoucherHistory() {
                       {reprintVoucher.receivedByPos || "\u00A0"}
                     </div>
                   </div>
-                  {/* Col 3 - CV Info */}
                   <div className="p-2 space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-medium">CV No.</span>
@@ -702,7 +1079,6 @@ export default function VoucherHistory() {
                 </div>
               </div>
 
-              {/* Footer Address */}
               <div className="text-center text-[10px] mt-8 flex justify-between px-4">
                 <div className="text-left w-1/3">
                   <span className="font-bold">Office Address:</span> Unit 203
