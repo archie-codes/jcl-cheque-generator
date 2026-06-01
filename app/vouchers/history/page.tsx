@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -90,19 +90,7 @@ export default function VoucherHistory() {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 15;
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchHistory();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, currentPage]);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch(
@@ -118,6 +106,18 @@ export default function VoucherHistory() {
     } finally {
       setIsLoading(false);
     }
+  }, [search, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchHistory();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchHistory]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setCurrentPage(1);
   };
 
   // --- SAVE EDIT FUNCTION ---
